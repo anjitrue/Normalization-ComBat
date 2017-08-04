@@ -1,7 +1,7 @@
 ########## Normalization of High Dimensional Metabolite MS Data ##########
 ################################################################################
 # Normalization Liver Metabolites.
-# Code provided by Dan Gatti.
+# Modified code from Dan Gatti.
 # Anji Trujillo
 # etrujillo2@wisc.edu
 # July 29, 2017
