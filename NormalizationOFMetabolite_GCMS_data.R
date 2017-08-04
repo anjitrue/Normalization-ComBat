@@ -139,8 +139,14 @@ dev.off()
 # Set up batch and model for comBat. #
 ######################################
 # ComBat wants the data with variable in rows and samples in columns.
+# use prior.plots = TRUE to give prior plots with kernel estimate of the empirical batch effect as well 
 mod = model.matrix(~sex, data = annot)[,-3]
+mod0 <- model.matrix(~1, data = annot)[,-3]
 batch = annot$Batch
+
+n.sv <- num.sv(dat = t(data.compl), mod = mod, method = "leek") # identifies the number of latent factors that need to be estimated
+svobj <- sva(dat = t(data.compl), mod = mod, mod0 = mod0,n.sv)
+
 
 chg = 1e6
 iter = 1
@@ -155,7 +161,10 @@ repeat( {
   data.compl = completeObs(pc.data)
 
   # Batch adjust.
-  data.cb = ComBat(dat = t(data.compl), batch = batch, mod = mod)
+  pdf("figures/ComBatSignificantAnalysis_20170804.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
+  data.cb2 = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
+  dev.off()
+  
   data.cb = t(data.cb)
 
   # Calculate the change.
@@ -163,19 +172,19 @@ repeat( {
   print(paste("   SS Change:", chg))
 
   # Put the missing data back in an impute again.
-  if(chg > 1 & iter < 20) {
-
-    data.cb[miss] = NA
-    data.log = data.cb
-    iter = iter + 1    
-
-  } else {
-
-    data.log = data.cb
-    break
-  }}
+  if(chg > 1 & iter < 20) # if chg is greater than 1 and iter is less than 20
+    { 
+      data.cb[miss] = NA
+      data.log = data.cb
+      iter = iter + 1    
+    }else 
+    {
+      data.log = data.cb
+      break
+    }
+  }
 )
-
+###########################################################################
 # Remove or average duplicate samples.
 dupl = which(duplicated(rownames(data.log)))
 dupl.data = data.log[rownames(data.log) %in% rownames(data.log)[dupl],]
@@ -186,15 +195,14 @@ prop.missing = rowMeans(is.na(data))
 unique.samples = unique(rownames(data.log))
 keep = rep(FALSE, nrow(data.log))
 
-for(i in 1:length(unique.samples)) {
-
-  sample = unique.samples[i]
-  wh = which(rownames(data.log) == sample)
-  wh = wh[which.min(prop.missing[wh])]
-  keep[wh] = TRUE
-
-} # for(i)
-
+for(i in 1:length(unique.samples)) 
+  {
+    sample = unique.samples[i]
+    wh = which(rownames(data.log) == sample)
+    wh = wh[which.min(prop.missing[wh])]
+    keep[wh] = TRUE
+  }
+##########################################################################################
 data.log = data.log[keep,]
 annot = annot[match(rownames(data.log), annot$Mouse.ID),]
 
