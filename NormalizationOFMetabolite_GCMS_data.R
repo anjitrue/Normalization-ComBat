@@ -153,7 +153,6 @@ dev.off()
 ######################################
 # ComBat wants the data with variable in rows and samples in columns.
 # use prior.plots = TRUE to give prior plots with kernel estimate of the empirical batch effect as well 
-sex.annot <- factor(annot$sex)
 
 mod = model.matrix(~sex, data = metab) #num arry with 382 samples
 batch = metab$Batch.x # 382
@@ -200,7 +199,7 @@ repeat( {
 # Remove or average duplicate samples. #
 ########################################
 
-dupl = which(duplicated(rownames(data.comBat)))
+dupl = which(duplicated(rownames(data.comBat)))  # no names are duplicated
 dupl.data = data[rownames(data.comBat) %in% rownames(data.comBat)[dupl],] # index rows where there are duplicates
 stopifnot(rownames(data) == rownames(data.comBat))
 prop.missing = rowMeans(is.na(data))
@@ -1279,5 +1278,3 @@ dev.off()
 # stop here
 # next step will be to add script for plasma BA measurements
 ####################################################################################
-
-
