@@ -25,6 +25,10 @@ library(sva)
 library(pamr)
 library(limma)
 library(genefilter)
+library(devtools)
+library(Biobase)
+library(bladderbatch)
+library(snpStats)
 
 #####################
 # Working Directory #
@@ -48,13 +52,15 @@ DOLiver01Aug2017 <- read.csv("01Aug2017DOPlasmaMetabolites_RAW_NoTransformation_
 ############################################
 
 annot <- read.csv("DOWave1through4_Covariates.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # Read in the sample annotation.
+rownames(annot) <- annot$Mouse.ID
 metab = right_join(annot, DOLiver01Aug2017, by = "Mouse.ID") # Merge the sample annotation and data by mouse id.
 x <- metab[grepl("Redo", metab$Mouse.ID),] # 14 samples with REDO in identifier
 metab <- metab[!grepl("Redo", metab$Mouse.ID),] # removing all the rows with Redo in identifier
 row.names(metab) <- metab[,1] # set row names
 dim(metab) # 384 x 385
 
-# annot = as.data.frame(metab[,1:24])
+
+
 data  = as.matrix(metab[,-(1:22)]) # Split up the sample annotation from the data and convert the data into a numeric matrix.
 data[data == 1] <- NA # replace all 1 with NA
 #ctrl = which(annot$Mouse.ID == "Control") # determine control samples
@@ -73,9 +79,11 @@ palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1",
 data.log2 = log2(data)
 
 pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA"
+pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
 str(pc.data)
-
-pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170802_2.pdf") # save pdf in Figures folder
+y <-completeObs(pc.data)
+z <- completeObs(pc.data.RAW)
+pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170806_2.pdf") # save pdf in Figures folder
   
   batch.colors = as.numeric(factor(metab$Batch.x))
   plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites, Colored by Batch 20170802")
@@ -85,12 +93,17 @@ pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170802_2.pdf") # save 
 dev.off()
 
 prop.missing = rowMeans(is.na(data)) # mean of each row where there is missing data
-sum(prop.missing > 0.25) # determin what samples have more than 25% of missing data
+sum(prop.missing > 0.25) # determine what samples have more than 25% of missing data # there are two samples
 rownames(data)[prop.missing > 0.25] # [1] "DO109" "DO134"
-keep = which(prop.missing < 0.25) # keep all data that has less than 25% of missing data
+keep = which(prop.missing < 0.25) # samples to be kept; all data that has less than 25% of missing data
 data = data[keep,] # subset data to keep
-annot = annot[keep,] # subset annotations to keep
+metab = metab[keep,]
+annot = as.data.frame(metab[,1:6])
 #annot$sex[annot$sex == "XO"] = "F" 
+
+str(data) #Raw data were samples contain has more than 75% of data present. two dimnames 382 samples with 363 metabolites
+str(annot) #382 with 6 variables
+str(metab) #382 obs with 385 variables
 
 pdf("Figures/VariationbyLoading_LiverMetabolites_20170803.pdf", useDingbats = FALSE) # save pdf in Figures folder
   pc.data = pca(data.log2, method = "bpca", nPcs = 20)
@@ -111,7 +124,7 @@ dim(loadings(pc.data)) #363 x 20
 
 sex = factor(metab$sex) # create a factor for sex
 
-pdf("figures/liver_metabolites_unnormalized_PCA_20170804.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
+pdf("figures/liver_metabolites_unnormalized_PCA_20170806.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
 
   plot(scores(pc.data), pch = 16, col = as.numeric(sex),
        main = "Un-normalized Liver Metabolites Colored by Sex")
@@ -140,12 +153,10 @@ dev.off()
 ######################################
 # ComBat wants the data with variable in rows and samples in columns.
 # use prior.plots = TRUE to give prior plots with kernel estimate of the empirical batch effect as well 
-mod = model.matrix(~sex, data = annot)[,-3]
-mod0 <- model.matrix(~1, data = annot)[,-3]
-batch = annot$Batch
+sex.annot <- factor(annot$sex)
 
-n.sv <- num.sv(dat = t(data.compl), mod = mod, method = "leek") # identifies the number of latent factors that need to be estimated
-svobj <- sva(dat = t(data.compl), mod = mod, mod0 = mod0,n.sv)
+mod = model.matrix(~sex, data = metab) #num arry with 382 samples
+batch = metab$Batch.x # 382
 
 
 chg = 1e6
@@ -162,7 +173,7 @@ repeat( {
 
   # Batch adjust.
   pdf("figures/ComBatSignificantAnalysis_20170804.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
-  data.cb2 = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
+  data.cb = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
   dev.off()
   
   data.cb = t(data.cb)
@@ -175,48 +186,49 @@ repeat( {
   if(chg > 1 & iter < 20) # if chg is greater than 1 and iter is less than 20
     { 
       data.cb[miss] = NA
-      data.log = data.cb
+      data.comBat = data.cb
       iter = iter + 1    
     }else 
     {
-      data.log = data.cb
+      data.comBat = data.cb # assign data.cb(comBat analysis) to data.log
       break
     }
   }
 )
-###########################################################################
-# Remove or average duplicate samples.
-dupl = which(duplicated(rownames(data.log)))
-dupl.data = data.log[rownames(data.log) %in% rownames(data.log)[dupl],]
 
-# Keep the sample with the lowest no-call rate.
-stopifnot(rownames(data) == rownames(data.log))
+########################################
+# Remove or average duplicate samples. #
+########################################
+
+dupl = which(duplicated(rownames(data.comBat)))
+dupl.data = data[rownames(data.comBat) %in% rownames(data.comBat)[dupl],] # index rows where there are duplicates
+stopifnot(rownames(data) == rownames(data.comBat))
 prop.missing = rowMeans(is.na(data))
-unique.samples = unique(rownames(data.log))
-keep = rep(FALSE, nrow(data.log))
+unique.samples = unique(rownames(data.comBat)) #382 unique samples
+keep = rep(FALSE, nrow(data.comBat))
 
 for(i in 1:length(unique.samples)) 
   {
     sample = unique.samples[i]
-    wh = which(rownames(data.log) == sample)
+    wh = which(rownames(data.comBat) == sample)
     wh = wh[which.min(prop.missing[wh])]
     keep[wh] = TRUE
   }
-##########################################################################################
-data.log = data.log[keep,]
-annot = annot[match(rownames(data.log), annot$Mouse.ID),]
+
+data.comBat.keep = data.comBat[keep,]
+metab.vector = metab[match(rownames(data.comBat.keep), metab$Mouse.ID),] #returns a cevotr of the position of first occerences of the vector1 in vector2
+x <- match(rownames(data.comBat.keep), metab$Mouse.ID)
 
 # Merge in the Chr M and Y info.
-attie_MY = read_csv(paste0(input.dir, "attie_sample_info_ChrM_Y.csv"))
-annot = right_join(annot, attie_MY, by = "Mouse.ID")
-annot = annot[,c(1:10, 13:15)]
-colnames(annot) = sub("\\.x", "", colnames(annot))
+# attie_MY = read_csv(paste0(input.dir, "attie_sample_info_ChrM_Y.csv"))
+# annot = right_join(annot, attie_MY, by = "Mouse.ID")
+# annot = annot[,c(1:10, 13:15)]
+# colnames(annot) = sub("\\.x", "", colnames(annot))
 
-data.log = data.frame(Mouse.ID = rownames(data.log), data.log)
-data.out = right_join(annot, data.log, by = "Mouse.ID")
+data.comBat.withcorrectedMouseID = data.frame(Mouse.ID = rownames(data.comBat.keep), data.comBat.keep) 
+data.out = right_join(annot, data.comBat.withcorrectedMouseID, by = "Mouse.ID") 
 
 saveRDS(data.out, file = paste0(output.dir, "attie_liver_metabolites_normalized.rds"))
-
 
 #################################################
 # Do this step if want rank Z-transformed data. # 
@@ -240,7 +252,7 @@ saveRDS(data.rz, file = paste0(output.dir, "attie_liver_metabolites_zscore_norma
 # PCA plots of Normalized data by batch, sex, etc. #
 ####################################################
 
-pdf("figures/liver_metabolites_normalized_PCA.pdf", width = 12, height = 7)
+pdf("figures/liver_metabolites_normalized_PCA_20170804.pdf", width = 12, height = 7)
 
   pc.data = pca(as.matrix(data.out[,-(1:13)]), method = "bpca", nPcs = 20)
   
@@ -1267,13 +1279,5 @@ dev.off()
 # stop here
 # next step will be to add script for plasma BA measurements
 ####################################################################################
-
-
-
-
-
-
-
-
 
 
