@@ -1,0 +1,84 @@
+################################################################################
+################################################################################
+# Compare to U. Wisc. data.
+# Daniel Gatti
+# dan.gatti@jax.org
+# July 14, 2017
+################################################################################
+################################################################################
+################################################################################
+norm = read.delim(paste0(input.dir,"14June2017_DOLiverMetabolites_NORM.txt"))
+rownames(norm) = norm$Mouse.ID
+
+ Transform each analyte into Z-scores.
+norm.rz = norm
+
+for(i in 2:ncol(norm.rz)) {
+  norm.rz[,i] = rankZ(norm.rz[,i])
+}
+
+saveRDS(norm.rz, file = paste0(output.dir, "attie_liver_metabolites_zscore_uwisc_normalized.rds"))
+
+norm = as.matrix(norm[,-1])
+
+# Merge the sample annotation with the U. Wisc. normalized data.
+annot.wisc = annot[annot$Mouse.ID %in% rownames(norm),]
+norm = norm[annot.wisc$Mouse.ID,]
+stopifnot(annot.wisc$Mouse.ID == rownames(norm))
+
+pc.data = pca(norm, method = "bpca", nPcs = 20)
+
+pdf("figures/liver_metabolites_UWisc_normalized_PCA.pdf", width = 12, height = 7)
+
+layout(matrix(1:2, 1, 2))
+sex = factor(annot.wisc$sex)
+plot(scores(pc.data), pch = 16, col = as.numeric(sex),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Sex")
+legend("bottomleft", legend = levels(sex), pch = 16, col = 1:length(levels(sex)))
+plot(scores(pc.data)[,3:2], pch = 16, col = as.numeric(sex),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Sex")
+legend("bottomleft", legend = levels(sex), pch = 16, col = 1:length(levels(sex)))
+
+layout(matrix(1:2, 1, 2))
+batch = factor(annot.wisc$Batch)
+plot(scores(pc.data), pch = 16, col = as.numeric(batch),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Batch")
+legend("bottomleft", legend = levels(batch), pch = 16, col = 1:length(levels(batch)),
+       x.intersp = 0.7, y.intersp = 0.7)
+plot(scores(pc.data)[,3:2], pch = 16, col = as.numeric(batch),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Batch")
+legend("bottomleft", legend = levels(batch), pch = 16, col = 1:length(levels(batch)),
+       x.intersp = 0.7, y.intersp = 0.7)
+
+layout(matrix(1:2, 1, 2))
+wave = factor(annot.wisc$wave)
+plot(scores(pc.data), pch = 16, col = as.numeric(wave),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Wave")
+legend("bottomleft", legend = levels(wave), pch = 16, col = 1:length(levels(wave)),
+      x.intersp = 0.7, y.intersp = 0.7)
+plot(scores(pc.data)[,3:2], pch = 16, col = as.numeric(wave),
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Wave")
+legend("bottomleft", legend = levels(wave), pch = 16, col = 1:length(levels(wave)),
+       x.intersp = 0.7, y.intersp = 0.7)
+
+layout(matrix(1:2, 1, 2))
+diet.days = factor(annot.wisc$diet_days, levels = sort(unique(annot.wisc$diet_days)))
+diet.colors = rainbow(length(levels(diet.days)) - 1)
+plot(scores(pc.data), pch = 16, col = diet.colors[diet.days],
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Diet Days")
+plot(scores(pc.data)[,3:2], pch = 16, col = diet.colors[diet.days],
+     main = "U. Wisc. Normalized Liver Metabolites Colored by Diet Days")
+
+dev.off()
+
+
+# Look at the distribution of phenotypes and the correlation between phenotypes
+# and samples.
+pdf("figures/liver_metabolites_UWisc_normalized_boxplot.pdf", width = 12, height = 7)
+boxplot(norm, range = 0)
+dev.off()
+
+pdf("figures/liver_metabolites_UWisc_normalized_heatmap.pdf", width = 12, height = 12)
+batch.colors = rainbow(12)[as.numeric(factor(annot.wisc$Batch))]
+heatmap(norm, RowSideColors = batch.colors)
+dev.off()
