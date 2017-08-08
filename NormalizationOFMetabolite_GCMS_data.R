@@ -59,8 +59,6 @@ metab <- metab[!grepl("Redo", metab$Mouse.ID),] # removing all the rows with Red
 row.names(metab) <- metab[,1] # set row names
 dim(metab) # 384 x 385
 
-
-
 data  = as.matrix(metab[,-(1:22)]) # Split up the sample annotation from the data and convert the data into a numeric matrix.
 data[data == 1] <- NA # replace all 1 with NA
 #ctrl = which(annot$Mouse.ID == "Control") # determine control samples
@@ -76,20 +74,20 @@ dim(data) # 384 mice X 363 features
 palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1", 
           "hotpink3", "red2", "steelblue2", "sienna2","slategray4", 
           "deepskyblue", "orangered", "midnightblue"))
-data.log2 = log2(data)
 
+data.log2 = log2(data)
 pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA"
 pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
 str(pc.data)
 y <-completeObs(pc.data)
 z <- completeObs(pc.data.RAW)
+
 pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170808.pdf") # save pdf in Figures folder
   
   batch.colors = as.numeric(factor(metab$Batch.x))
   plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites, Colored by Batch 20170802")
   text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.log2), 
        col = batch.colors)
-
 dev.off()
 
 prop.missing = rowMeans(is.na(data)) # mean of each row where there is missing data
@@ -99,16 +97,18 @@ keep = which(prop.missing < 0.25) # samples to be kept; all data that has less t
 data = data[keep,] # subset data to keep
 metab = metab[keep,]
 annot = as.data.frame(metab[,1:6])
-#annot$sex[annot$sex == "XO"] = "F" 
+
 
 str(data) #Raw data were samples contain has more than 75% of data present. two dimnames 382 samples with 363 metabolites
 str(annot) #382 with 6 variables
 str(metab) #382 obs with 385 variables
 
 pdf("Figures/VariationbyLoading_LiverMetabolites_20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
+
   pc.data = pca(data.log2, method = "bpca", nPcs = 20)
   plot(pc.data)
   abline(h = 0.95, col = 2)
+  
 dev.off()
 
 pdf("Figures/LoadingUnnomarlizedLiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
@@ -145,7 +145,7 @@ pdf("figures/liver_metabolites_unnormalized_PCA_20170808.pdf", useDingbats = FAL
   #diet.colors = rainbow(length(levels(diet.days)) - 1)
   #plot(scores(pc.data), pch = 19, col = diet.colors[diet.days],
        #main = "Un-normalized Liver Metabolites Colored by Diet Days")
-
+  
 dev.off()
 
 ######################################
@@ -311,16 +311,22 @@ annot.data.out = data.out[,1:6]
 data.data.out  = log2(as.matrix(data.out[,-(1:6)]))
 
 pdf("figures/liver_metabolites_normalized_boxplot.pdf", width = 12, height = 7)
-boxplot(data.data.out, range = 0)
+
+  boxplot(data.data.out, range = 0)
+  
 dev.off()
 
 pdf("figures/liver_metabolites_normalized_heatmap.pdf", width = 12, height = 12)
-batch.colors = rainbow(12)[as.numeric(factor(annot$Batch))]
-heatmap(data.data.out, RowSideColors = batch.colors)
+
+  batch.colors = rainbow(12)[as.numeric(factor(annot$Batch))]
+  heatmap(data.data.out, RowSideColors = batch.colors)
+  
 dev.off()
 
 
 pdf("figures/liver_metabolites_normalized_heatmap.pdf", width = 12, height = 12)
-batch.colors = rainbow(12)[as.numeric(factor(annot$Batch))]
-heatmap(data.data.out, RowSideColors = batch.colors)
+
+  batch.colors = rainbow(12)[as.numeric(factor(annot$Batch))]
+  heatmap(data.data.out, RowSideColors = batch.colors)
+  
 dev.off()
