@@ -104,14 +104,16 @@ str(data.filtered) #Raw data were samples contain has more than 75% of data pres
 str(annot) #382 with 6 variables
 str(metab.filtered) #382 obs with 338 (385-47) variables
 
+sum(is.na(data.filtered)) # 3127 NA values
+
 ######################################################
 # PCA plots with outliers and non-filtered features. #
 ######################################################
 
-data.log2 = log2(data)
+data.log2 = log2(data.filtered)
 
-pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA"
-pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
+pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA" using Log2 Raw values
+pc.data.RAW = pca(data.filtered, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
 str(pc.data)
 str(pc.data.RAW)
 imputed.Log2RAW = completeObs(pc.data)
@@ -125,20 +127,37 @@ imputed.NoTransRAW = completeObs(pc.data.RAW)
 palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1", 
           "hotpink3", "red2", "steelblue2", "sienna2","slategray4", 
           "deepskyblue", "orangered", "midnightblue"))
-pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170808.pdf") # save pdf in Figures folder
+
+###################### LOG2 RAW PCA plots
+pdf("Figures/Liver_metabolites_Tier4_Log2RAW_Filtered_DOMice_PCA_20170809.pdf", useDingbats = FALSE) # pca score plot with 
   
-  batch.colors = as.numeric(factor(metab$Batch.x))
-  plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites, Colored by Batch 20170802")
-  text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.log2), 
+  batch.colors = as.numeric(factor(metab.filtered$Batch.x))
+  plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites Log 2 Raw Values, Colored by Batch 20170809")
+  text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.filtered), 
        col = batch.colors)
+  
 dev.off()
+pdf("Figures/VariationforEachPC_Log2RAW_LiverMetabolites_20170809.pdf", useDingbats = FALSE) # save pdf in Figures folder
 
-pdf("Figures/VariationbyLoading_LiverMetabolites_20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
-
-  pc.data = pca(data.log2, method = "bpca", nPcs = 20)
   plot(pc.data)
   abline(h = 0.95, col = 2)
   
+dev.off()
+
+###################### NoTransformation RAW PCA plots
+pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_Filtered_DOMice_PCA_20170809.pdf") # pca score plot with raw values no transformation
+
+  batch.colors = as.numeric(factor(metab.filtered$Batch.x))
+  plot(scores(pc.data.RAW), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites No transformation RAW Values, Colored by Batch 20170809")
+  text(scores(pc.data.RAW)[,1], scores(pc.data.RAW)[,2], labels = rownames(data.log2), 
+       col = batch.colors)
+  
+dev.off()
+pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_LiverMetabolites_20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
+
+  plot(pc.data.RAW)
+  abline(h = 0.95, col = 2)
+
 dev.off()
 
 pdf("Figures/LoadingUnnomarlizedLiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
