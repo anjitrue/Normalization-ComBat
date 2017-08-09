@@ -66,29 +66,10 @@ data[data == 1] <- NA # replace all 1 with NA
 #annot = annot[-ctrl,] # Remove control samples from annot data
 dim(data) # 384 mice X 363 features
 
-##################
-# Plotting data. #
-##################
-# pcaMethods wants samples in rows and variables in columns.
 
-palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1", 
-          "hotpink3", "red2", "steelblue2", "sienna2","slategray4", 
-          "deepskyblue", "orangered", "midnightblue"))
-
-data.log2 = log2(data)
-pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA"
-pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
-str(pc.data)
-y <-completeObs(pc.data)
-z <- completeObs(pc.data.RAW)
-
-pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170808.pdf") # save pdf in Figures folder
-  
-  batch.colors = as.numeric(factor(metab$Batch.x))
-  plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites, Colored by Batch 20170802")
-  text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.log2), 
-       col = batch.colors)
-dev.off()
+###################################################
+# Remove samples with more than 25% data missing. #
+###################################################
 
 prop.missing = rowMeans(is.na(data)) # mean of each row where there is missing data
 sum(prop.missing > 0.25) # determine what samples have more than 25% of missing data # there are two samples
@@ -98,10 +79,59 @@ data = data[keep,] # subset data to keep
 metab = metab[keep,]
 annot = as.data.frame(metab[,1:6])
 
+####################################################
+# Remove features with more than 25% data missing. #
+####################################################
 
-str(data) #Raw data were samples contain has more than 75% of data present. two dimnames 382 samples with 363 metabolites
+sum(is.na(data)) # 10021 # number of missing values in data
+#y <- imputed.Log2RAW[is.na(data)] #list of imputed values
+#z <- data[is.na(data)] #
+
+features.missing = colMeans(is.na(data)) # 363 features that are in vector
+sum(features.missing > 0.25) # 47 metabolites missing more than 25% of data
+features.missing.25more = colnames(data)[features.missing > 0.25] # 47 features in data
+
+keep.features = which(features.missing < 0.25) # 316 good features
+keep.features = names(keep.features)
+
+remove.features = which(features.missing > 0.25)
+remove.features = names(remove.features)
+
+metab.filtered = metab[ , -which(names(metab) %in% remove.features)]
+data.filtered = data[,keep.features]
+
+str(data.filtered) #Raw data were samples contain has more than 75% of data present. two dimnames 382 samples with 316 metabolites
 str(annot) #382 with 6 variables
-str(metab) #382 obs with 385 variables
+str(metab.filtered) #382 obs with 338 (385-47) variables
+
+######################################################
+# PCA plots with outliers and non-filtered features. #
+######################################################
+
+data.log2 = log2(data)
+
+pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA"
+pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
+str(pc.data)
+str(pc.data.RAW)
+imputed.Log2RAW <-completeObs(pc.data)
+imputed.NoTransRAW <- completeObs(pc.data.RAW)
+
+#############################
+# Plotting PCA of raw data. #
+#############################
+# pcaMethods wants samples in rows and variables in columns.
+
+palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1", 
+          "hotpink3", "red2", "steelblue2", "sienna2","slategray4", 
+          "deepskyblue", "orangered", "midnightblue"))
+pdf("Figures/Liver_metabolites_Tier4_Log2RAW_DOMice_PCA_20170808.pdf") # save pdf in Figures folder
+  
+  batch.colors = as.numeric(factor(metab$Batch.x))
+  plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites, Colored by Batch 20170802")
+  text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.log2), 
+       col = batch.colors)
+dev.off()
 
 pdf("Figures/VariationbyLoading_LiverMetabolites_20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
 
