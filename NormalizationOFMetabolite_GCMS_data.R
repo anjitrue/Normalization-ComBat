@@ -51,11 +51,11 @@ DOLiver01Aug2017 <- read.csv("01Aug2017DOPlasmaMetabolites_RAW_NoTransformation_
 # Restructure data to include annotations. #
 ############################################
 
-annot <- read.csv("DOWave1through4_Covariates.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # Read in the sample annotation.
+annot = read.csv("DOWave1through4_Covariates.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # Read in the sample annotation.
 rownames(annot) <- annot$Mouse.ID
 metab = right_join(annot, DOLiver01Aug2017, by = "Mouse.ID") # Merge the sample annotation and data by mouse id.
 x <- metab[grepl("Redo", metab$Mouse.ID),] # 14 samples with REDO in identifier
-metab <- metab[!grepl("Redo", metab$Mouse.ID),] # removing all the rows with Redo in identifier
+metab = metab[!grepl("Redo", metab$Mouse.ID),] # removing all the rows with Redo in identifier
 row.names(metab) <- metab[,1] # set row names
 dim(metab) # 384 x 385
 
@@ -114,8 +114,8 @@ pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model 
 pc.data.RAW = pca(data, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
 str(pc.data)
 str(pc.data.RAW)
-imputed.Log2RAW <-completeObs(pc.data)
-imputed.NoTransRAW <- completeObs(pc.data.RAW)
+imputed.Log2RAW = completeObs(pc.data)
+imputed.NoTransRAW = completeObs(pc.data.RAW)
 
 #############################
 # Plotting PCA of raw data. #
