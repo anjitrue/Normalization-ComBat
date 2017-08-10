@@ -137,6 +137,7 @@ pdf("Figures/Liver_metabolites_Tier4_Log2RAW_Filtered_DOMice_PCA_20170809.pdf", 
        col = batch.colors)
   
 dev.off()
+
 pdf("Figures/VariationforEachPC_Log2RAW_LiverMetabolites_20170809.pdf", useDingbats = FALSE) # save pdf in Figures folder
 
   plot(pc.data)
@@ -144,11 +145,18 @@ pdf("Figures/VariationforEachPC_Log2RAW_LiverMetabolites_20170809.pdf", useDingb
   
 dev.off()
 
+pdf("Figures/LoadingsPlot_Log2RAW_LiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
+  plot(loadings(pc.data), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites LOG2 RAW, 316 Metabolites") #plot the loadings
+  text(loadings(pc.data)[,1], loadings(pc.data)[,2], labels = colnames(data.log2), 
+       col = "midnightblue")
+dev.off()
+
+dim(loadings(pc.data)) #363 x 20
 ###################### NoTransformation RAW PCA plots
 pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_Filtered_DOMice_PCA_20170809.pdf") # pca score plot with raw values no transformation
 
   batch.colors = as.numeric(factor(metab.filtered$Batch.x))
-  plot(scores(pc.data.RAW), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites No transformation RAW Values, Colored by Batch 20170809")
+  plot(scores(pc.data.RAW), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites No Transformation RAW Values, Colored by Batch 20170809")
   text(scores(pc.data.RAW)[,1], scores(pc.data.RAW)[,2], labels = rownames(data.log2), 
        col = batch.colors)
   
@@ -160,32 +168,31 @@ pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_LiverMetabolites_20170808.pdf", 
 
 dev.off()
 
-pdf("Figures/LoadingUnnomarlizedLiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
-  plot(loadings(pc.data), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites, 363 Metabolites") #plot the loadings
-  text(loadings(pc.data)[,1], loadings(pc.data)[,2], labels = colnames(data.log2), 
+pdf("Figures/LoadingUnnomarlized_NoTransformation_LiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
+  plot(loadings(pc.data.RAW), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites NO Transformation RAW Values, 316 Metabolites") #plot the loadings
+  text(loadings(pc.data)[,1], loadings(pc.data)[,2], labels = colnames(data.filtered), 
        col = "midnightblue")
 dev.off()
-dim(loadings(pc.data)) #363 x 20
 
 ######################################################
 # PCA plots of Unnormalized data by batch, sex, etc. #
 ######################################################
 
-sex = factor(metab$sex) # create a factor for sex
+sex = factor(metab.filtered$sex) # create a factor for sex
 
-pdf("figures/liver_metabolites_unnormalized_PCA_20170808.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
+pdf("figures/liver_metabolites_unnormalized_PCA_201708009.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
 
   plot(scores(pc.data), pch = 16, col = as.numeric(sex),
        main = "Un-normalized Liver Metabolites Colored by Sex")
   legend("bottomleft", legend = levels(sex), pch = 16, col = 1:length(levels(sex)))
   
-  batch = factor(metab$Batch.x)
+  batch = factor(metab.filtered$Batch.x)
   plot(scores(pc.data), pch = 16, col = as.numeric(batch),
        main = "Un-normalized Liver Metabolites Colored by Batch")
   legend("bottomleft", legend = levels(batch), pch = 16, col = 1:length(levels(batch)),
          y.intersp = 0.7)
   
-  wave = factor(metab$Wave)
+  wave = factor(metab.filtered$Wave)
   plot(scores(pc.data), pch = 16, col = as.numeric(wave),
       main = "Un-normalized Liver Metabolites Colored by Wave")
   legend("bottomleft", legend = levels(wave), pch = 16, col = 1:length(levels(wave)))
@@ -203,31 +210,31 @@ dev.off()
 # ComBat wants the data with variable in rows and samples in columns.
 # use prior.plots = TRUE to give prior plots with kernel estimate of the empirical batch effect as well 
 
-mod = model.matrix(~sex, data = metab) #num arry with 382 samples
-batch = metab$Batch.x # 382
+mod = model.matrix(~sex, data = metab.filtered) #num arry with 382 samples
+batch = metab.filtered$Batch.x # 382
 
 
 chg = 1e6
 iter = 1
-repeat( {
+#repeat( {
 
   print(paste("Iteration", iter))
 
   # Impute missing data.
-  miss = which(is.na(data))
+  miss = which(is.na(data.filtered)) # 3127 missing features
   print(paste(length(miss), "missing points."))
-  pc.data = pca(data, method = "bpca", nPcs = 7)
+  #pc.data = pca(data, method = "bpca", nPcs = 7)
   data.compl = completeObs(pc.data)
 
   # Batch adjust.
-  pdf("figures/ComBatSignificantAnalysis_20170804.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
-  data.cb = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
+  pdf("figures/ComBatSignificantAnalysis_Log2RAW_20PCs_20170809.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
+    data.cb = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
   dev.off()
   
   data.cb = t(data.cb)
 
-  # Calculate the change.
-  chg = sum((data.compl[miss] - data.cb[miss])^2)
+  
+  chg = sum((data.compl[miss] - data.cb[miss])^2/sum(data.compl[miss]^2)) # calculate error
   print(paste("   SS Change:", chg))
 
   # Put the missing data back in an impute again.
@@ -241,8 +248,8 @@ repeat( {
       data.comBat = data.cb # assign data.cb(comBat analysis) to data.log
       break
     }
-  }
-)
+#  }
+#)
 
 ########################################
 # Remove or average duplicate samples. #
