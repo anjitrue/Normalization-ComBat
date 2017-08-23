@@ -45,7 +45,12 @@ output.dir = "C:/Users/etrujillo/Desktop/DOProjectFolder/NormalizedThroughSAVand
 #####################
 
 options(stringsAsFActors = F)
-DOLiver01Aug2017 <- read.csv("01Aug2017DOPlasmaMetabolites_RAW_NoTransformation_Tier4_ForR.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # raw untransformed DO Liver
+DOLiver21Aug2017 <- read.csv("21Aug2017DOLiverMetabolites_RAW_Tier4_ForR.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # raw untransformed DO Liver
+dim(DOLiver21Aug2017) # 429 x 323
+
+ctrl = DOLiver21Aug2017[grep("Control", DOLiver21Aug2017$Mouse.ID),] # 45 x 324
+matching.controls <- which(DOLiver21Aug2017$Mouse.ID %in% ctrl$Mouse.ID) # determine control samples
+DOLiver21Aug2017 = DOLiver21Aug2017[-matching.controls,] # Remove control samples from data matrix
 
 ############################################
 # Restructure data to include annotations. #
@@ -53,18 +58,20 @@ DOLiver01Aug2017 <- read.csv("01Aug2017DOPlasmaMetabolites_RAW_NoTransformation_
 
 annot = read.csv("DOWave1through4_Covariates.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) # Read in the sample annotation.
 rownames(annot) <- annot$Mouse.ID
-metab = right_join(annot, DOLiver01Aug2017, by = "Mouse.ID") # Merge the sample annotation and data by mouse id.
+metab = right_join(annot, DOLiver21Aug2017, by = "Mouse.ID") # Merge the sample annotation and data by mouse id.
+rownames(metab) <- metab$Mouse.ID
 x <- metab[grepl("Redo", metab$Mouse.ID),] # 14 samples with REDO in identifier
 metab = metab[!grepl("Redo", metab$Mouse.ID),] # removing all the rows with Redo in identifier
-row.names(metab) <- metab[,1] # set row names
-dim(metab) # 384 x 385
+#row.names(metab) <- metab[,1] # set row names
+dim(metab) # 384 x 385 # 429 x 343
 
 data  = as.matrix(metab[,-(1:22)]) # Split up the sample annotation from the data and convert the data into a numeric matrix.
 data[data == 1] <- NA # replace all 1 with NA
-#ctrl = which(annot$Mouse.ID == "Control") # determine control samples
-#data = data[-ctrl,] # Remove control samples from data matrix
+#ctrl = data[grep("Control", rownames(data)),] # 45 x 321
+#matching.controls <- which(rownames(data) %in% rownames(ctrl)) # determine control samples
+#data = data[-matching.controls,] # Remove control samples from data matrix
 #annot = annot[-ctrl,] # Remove control samples from annot data
-dim(data) # 384 mice X 363 features
+dim(data) # 384 mice X 363 features #384 x 321
 
 
 ###################################################
@@ -83,11 +90,12 @@ annot = as.data.frame(metab[,1:6])
 # Remove features with more than 25% data missing. #
 ####################################################
 
-sum(is.na(data)) # 10021 # number of missing values in data
+sum(is.na(data)) # 10021 # number of missing values in data #8111
+sum(!is.na(data))#128645 #114511
 #y <- imputed.Log2RAW[is.na(data)] #list of imputed values
-#z <- data[is.na(data)] #
+#z <- data[is.na(data)] 
 
-features.missing = colMeans(is.na(data)) # 363 features that are in vector
+features.missing = colMeans(is.na(data)) # 363 features that are in vector #321
 sum(features.missing > 0.25) # 47 metabolites missing more than 25% of data
 features.missing.25more = colnames(data)[features.missing > 0.25] # 47 features in data
 
@@ -106,6 +114,8 @@ str(metab.filtered) #382 obs with 338 (385-47) variables
 
 sum(is.na(data.filtered)) # 3127 NA values
 
+write.table(data.filtered, "RModified/FilteredbyR_21Aug2017DOLiverMetabolites_RAW_NoTransformation_Tier4_20170815.txt", sep="\t")
+
 ######################################################
 # PCA plots with outliers and non-filtered features. #
 ######################################################
@@ -113,11 +123,9 @@ sum(is.na(data.filtered)) # 3127 NA values
 data.log2 = log2(data.filtered)
 
 pc.data = pca(data.log2, method = "bpca", nPcs = 20) # iterative Bayesian model that handels missing values "NA" using Log2 Raw values
-pc.data.RAW = pca(data.filtered, method = "bpca", nPcs = 20) # should PCA be done with log2 transformed data or RAW??
+saveRDS(pc.data, file = paste0(output.dir, "23Aug2017_DOLiver_Metabolites_PCData_Log2RAW_20PCs.rds"))
 str(pc.data)
-str(pc.data.RAW)
 imputed.Log2RAW = completeObs(pc.data)
-imputed.NoTransRAW = completeObs(pc.data.RAW)
 
 #############################
 # Plotting PCA of raw data. #
@@ -129,59 +137,35 @@ palette(c("mediumorchid2","mediumturquoise","olivedrab3", "darkgoldenrod1",
           "deepskyblue", "orangered", "midnightblue"))
 
 ###################### LOG2 RAW PCA plots
-pdf("Figures/Liver_metabolites_Tier4_Log2RAW_Filtered_DOMice_PCA_20170809.pdf", useDingbats = FALSE) # pca score plot with 
-  
+pdf("Figures/Liver_metabolites_Tier4_Log2RAW_Filtered_DOMice_PCA_20170823.pdf", useDingbats = FALSE) # pca score plot with 
   batch.colors = as.numeric(factor(metab.filtered$Batch.x))
-  plot(scores(pc.data), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites Log 2 Raw Values, Colored by Batch 20170809")
+  plot(scores(pc.data), pch = 16, col = batch.colors, main = "PCAScores Un-normalized Liver Metabolites Log 2 Raw Values, Colored by Batch 20170823")
   text(scores(pc.data)[,1], scores(pc.data)[,2], labels = rownames(data.filtered), 
        col = batch.colors)
   
 dev.off()
 
-pdf("Figures/VariationforEachPC_Log2RAW_LiverMetabolites_20170809.pdf", useDingbats = FALSE) # save pdf in Figures folder
-
+pdf("Figures/VariationforEachPC_Log2RAW_LiverMetabolites_20170823.pdf", useDingbats = FALSE) # save pdf in Figures folder
   plot(pc.data)
   abline(h = 0.95, col = 2)
   
 dev.off()
 
-pdf("Figures/LoadingsPlot_Log2RAW_LiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
-  plot(loadings(pc.data), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites LOG2 RAW, 316 Metabolites") #plot the loadings
+pdf("Figures/LoadingsPlot_Log2RAW_LiverMetabolites20170823.pdf", useDingbats = FALSE) # save pdf in Figures folder
+  plot(loadings(pc.data), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites LOG2 RAW, 283 Metabolites") #plot the loadings
   text(loadings(pc.data)[,1], loadings(pc.data)[,2], labels = colnames(data.log2), 
        col = "midnightblue")
 dev.off()
 
-dim(loadings(pc.data)) #363 x 20
-###################### NoTransformation RAW PCA plots
-pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_Filtered_DOMice_PCA_20170809.pdf") # pca score plot with raw values no transformation
-
-  batch.colors = as.numeric(factor(metab.filtered$Batch.x))
-  plot(scores(pc.data.RAW), pch = 16, col = batch.colors, main = "Un-normalized Liver Metabolites No Transformation RAW Values, Colored by Batch 20170809")
-  text(scores(pc.data.RAW)[,1], scores(pc.data.RAW)[,2], labels = rownames(data.log2), 
-       col = batch.colors)
-  
-dev.off()
-pdf("Figures/Liver_metabolites_Tier4_NoTransRAW_LiverMetabolites_20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
-
-  plot(pc.data.RAW)
-  abline(h = 0.95, col = 2)
-
-dev.off()
-
-pdf("Figures/LoadingUnnomarlized_NoTransformation_LiverMetabolites20170808.pdf", useDingbats = FALSE) # save pdf in Figures folder
-  plot(loadings(pc.data.RAW), pch = 19, col = "mediumorchid2", main = "Loadings Un-normalized Liver Metabolites NO Transformation RAW Values, 316 Metabolites") #plot the loadings
-  text(loadings(pc.data)[,1], loadings(pc.data)[,2], labels = colnames(data.filtered), 
-       col = "midnightblue")
-dev.off()
+dim(loadings(pc.data)) #363 x 20 # 283 x 20
 
 ######################################################
 # PCA plots of Unnormalized data by batch, sex, etc. #
 ######################################################
 
-sex = factor(metab.filtered$sex) # create a factor for sex
-
-pdf("figures/liver_metabolites_unnormalized_PCA_201708009.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
-
+pdf("figures/PCA_liver_metabolites_unnormalized_sex_batch_wave_201708023.pdf", useDingbats = FALSE) # compiles the following plot into one pdf
+  
+  sex = factor(metab.filtered$sex) # create a factor for sex
   plot(scores(pc.data), pch = 16, col = as.numeric(sex),
        main = "Un-normalized Liver Metabolites Colored by Sex")
   legend("bottomleft", legend = levels(sex), pch = 16, col = 1:length(levels(sex)))
@@ -211,6 +195,8 @@ dev.off()
 # use prior.plots = TRUE to give prior plots with kernel estimate of the empirical batch effect as well 
 
 mod = model.matrix(~sex, data = metab.filtered) #num arry with 382 samples
+mod.wave = model.matrix(~wave, data = metab.filtered)
+mod0 = model.matrix(~1, data = metab.filtered) # intercept go through zero and one
 batch = metab.filtered$Batch.x # 382
 
 
@@ -223,18 +209,22 @@ iter = 1
   # Impute missing data.
   miss = which(is.na(data.filtered)) # 3127 missing features
   print(paste(length(miss), "missing points."))
-  #pc.data = pca(data, method = "bpca", nPcs = 7)
+  pc.data = pca(data.log2, method = "bpca", nPcs = 7)
   data.compl = completeObs(pc.data)
 
-  # Batch adjust.
-  pdf("figures/ComBatSignificantAnalysis_Log2RAW_20PCs_20170809.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
+  # Batch adjust to sex.
+  pdf("figures/ComBatSignificantAnalysis_Log2RAW_20PCs_20170823.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
     data.cb = ComBat(dat = t(data.compl), batch = batch, mod = mod, prior.plots = TRUE) # ComBat normalization function
   dev.off()
   
-  data.cb = t(data.cb)
-
+  # Batch adjust to wave.Confounding 
+  #pdf("figures/ComBatSignificantAnalysis_Log2RAW_7Pcs_adjustedtoWave_20170810.pdf", useDingbats = FALSE) # compiles the following plot into one pdf)
+    #data.cb.wave = ComBat(dat = t(data.compl), batch = batch, mod = mod.wave, prior.plots = TRUE) # ComBat normalization function
+  #dev.off()
   
-  chg = sum((data.compl[miss] - data.cb[miss])^2/sum(data.compl[miss]^2)) # calculate error
+  data.cb = t(data.cb)
+  
+  chg = sum((data.compl[miss] - data.cb[miss])^2)/sum(data.compl[miss]^2) # calculate error
   print(paste("   SS Change:", chg))
 
   # Put the missing data back in an impute again.
@@ -250,6 +240,67 @@ iter = 1
     }
 #  }
 #)
+
+pValuesComBat = f.pvalue(t(data.cb), mod, mod0)
+qValuesComBat = p.adjust(pValuesComBat, method = "BH")
+
+pdf("figures/HistogramAndDensity_ComBatCorrected_20170823.pdf", useDingbats = FALSE)
+hist(t(data.comBat[miss]),
+     probability = TRUE, # In stead of frequency
+     #breaks = "FD",      # For more breaks than the default
+     col = "darkslategray4", border = "seashell3")
+lines(density(t(data.comBat[miss]) - 0.5, bw = 0.6707),   # Add the kernel density estimate (-.5 fix for the bins)
+      col = "firebrick2", lwd = 3)
+dev.off()
+
+pdf("figures/HistogramAndDensity_ImputedData_20170823.pdf", useDingbats = FALSE)
+hist(data.compl[miss],
+     probability = TRUE, # In stead of frequency
+     #breaks = "FD",      # For more breaks than the default
+     col = "darkslategray4", border = "seashell3")
+lines(density(data.compl[miss] - 0.5, bw = 0.6707),   # Add the kernel density estimate (-.5 fix for the bins)
+      col = "firebrick2", lwd = 3)
+dev.off()
+
+# plot(unique(pValuesComBat))
+# plot(order(unique(pValuesComBat)))
+# plot(data.compl)
+# hist(data.compl)
+# hist(t(data.comBat))
+# hist(log2(data))
+# hist(data.compl[miss])
+# hist(t(data.cb[miss]))
+
+hist(log2(data),
+     probability = TRUE, # In stead of frequency
+     breaks = "FD",      # For more breaks than the default
+     col = "darkslategray4", border = "seashell3")
+#lines(density(log2(data) - 0.5),   # Add the kernel density estimate (-.5 fix for the bins)
+#      col = "firebrick2", lwd = 3)
+
+hist(t(data.cb)[miss],
+     probability = TRUE, # In stead of frequency
+     #breaks = "FD",      # For more breaks than the default
+     col = "darkslategray4", border = "seashell3")
+lines(density(t(data.cb[miss]) - 0.5),   # Add the kernel density estimate (-.5 fix for the bins)
+      col = "firebrick2", lwd = 3)
+
+hist(data.compl,
+     probability = TRUE, # In stead of frequency
+     #breaks = "FD",      # For more breaks than the default
+     col = "darkslategray4", border = "seashell3")
+lines(density(data.compl), # Add the kernel density estimate (-.5 fix for the bins)
+      col = "firebrick2", lwd = 3)
+
+?bw.nrd
+density(data.compl)
+
+z.test2sam = function(a, b, var.a, var.b){
+  n.a = length(a)
+  n.b = length(b)
+  zeta = (mean(a) - mean(b)) / (sqrt(var.a/n.a + var.b/n.b))
+  return(zeta)
+}
 
 ########################################
 # Remove or average duplicate samples. #
@@ -271,10 +322,10 @@ for(i in 1:length(unique.samples))
   }
 
 data.comBat.keep = data.comBat[keep,]
-metab.match = metab[match(rownames(data.comBat.keep), metab$Mouse.ID),] #return the position of first occerences of the vector1 in vector2
+metab.match = metab.filtered[match(rownames(data.comBat.keep), metab.filtered$Mouse.ID),] #return the position of first occerences of the vector1 in vector2
 annot.match = annot[match(rownames(data.comBat.keep), annot$Mouse.ID),]
-x <- match(rownames(data.comBat.keep), annot$Mouse.ID)
-y <- match(rownames(data.comBat.keep), metab$Mouse.ID)
+#x <- match(rownames(data.comBat.keep), annot$Mouse.ID)
+#y <- match(rownames(data.comBat.keep), metab$Mouse.ID)
 
 # Merge in the Chr M and Y info.
 # attie_MY = read_csv(paste0(input.dir, "attie_sample_info_ChrM_Y.csv"))
@@ -285,8 +336,8 @@ y <- match(rownames(data.comBat.keep), metab$Mouse.ID)
 data.comBat.withcorrectedMouseID = data.frame(Mouse.ID = rownames(data.comBat.keep), data.comBat.keep) 
 data.out = right_join(annot, data.comBat.withcorrectedMouseID, by = "Mouse.ID") 
 row.names(data.out) <- data.out$Mouse.ID
-str(data.out) # data frame with 382 obst and 369 variables
-saveRDS(data.out, file = paste0(output.dir, "EAT_Liver_GCMS_Metabolites_ComBatNormalized.rds"))
+str(data.out) # data frame with 316 obst and 388 variables
+saveRDS(data.out, file = paste0(output.dir, "EAT_Liver_GCMS_Metabolites_ComBatNormalized_20170823.rds"))
 
 #################
 # Z-score data. # 
@@ -314,11 +365,12 @@ rankZ = function(x)
  
 x <- data.out[,-(1:6)]
  
-pdf("figures/liver_metabolites_normalized_PCA_20170807.pdf", width = 12, height = 7, useDingbats = FALSE)
+pdf("Figures/liver_metabolites_normalized_PCA_20170823.pdf", width = 12, height = 7, useDingbats = FALSE)
 
   pc.data = pca(as.matrix(data.out[,-(1:6)]), method = "bpca", nPcs = 20)
+  pc.data = pca(as.matrix(t(data.comBat)), method = "bpca", nPcs = 20)
   
-  layout(matrix(1:2, 1, 2))
+  #layout(matrix(1:2, 1, 2))
   
   sex = factor(data.out$sex)
   plot(scores(pc.data), pch = 16, col = as.numeric(sex),
