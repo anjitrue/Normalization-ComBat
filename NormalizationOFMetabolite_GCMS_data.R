@@ -338,7 +338,7 @@ data.out = right_join(annot, data.comBat.withcorrectedMouseID, by = "Mouse.ID")
 row.names(data.out) <- data.out$Mouse.ID
 str(data.out) # data frame with 316 obst and 388 variables
 saveRDS(data.out, file = paste0(output.dir, "EAT_Liver_GCMS_Metabolites_ComBatNormalized_20170823.rds"))
-
+write.table(data.out, "RModified/21Aug2017DOLiverMetabolites_ComBatNormalized.txt", sep="\t")
 #################
 # Z-score data. # 
 #################
